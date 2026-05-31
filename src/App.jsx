@@ -1,4 +1,4 @@
-import react, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { BookOpen, CheckCircle2, Database, Github, Loader2, Rocket, Send, ShieldCheck } from "lucide-react";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
