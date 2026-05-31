@@ -1,0 +1,1 @@
+Redeploy triggered after adding Supabase environment variables in Vercel.
