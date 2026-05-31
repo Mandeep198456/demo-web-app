@@ -1,0 +1,80 @@
+.attachment-box {
+  border: 1px dashed var(--field-border);
+  background: var(--message-bg);
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.attachment-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+}
+
+.attachment-input-row input[type="file"] {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.attachment-box p {
+  margin: 10px 0 0;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.selected-file,
+.local-attachment-note,
+.attachment-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--text-muted);
+}
+
+.selected-file {
+  justify-content: space-between;
+  border: 1px solid var(--card-border);
+  background: var(--field-bg);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.selected-file span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-file-button {
+  width: auto;
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-size: 0.78rem;
+}
+
+.attachment-link {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 12px;
+  color: var(--accent);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.attachment-link:hover {
+  text-decoration: underline;
+}
+
+.local-attachment-note {
+  margin-bottom: 12px;
+  font-size: 0.92rem;
+}
