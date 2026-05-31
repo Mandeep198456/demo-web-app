@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BookOpen, CheckCircle2, Database, Github, Loader2, Rocket, Send, ShieldCheck } from "lucide-react";
+import {
+  BookOpen,
+  CheckCircle2,
+  Database,
+  Github,
+  Loader2,
+  Moon,
+  Rocket,
+  Send,
+  ShieldCheck,
+  Sun,
+} from "lucide-react";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
 const emptyForm = {
@@ -25,6 +36,17 @@ const fallbackRows = [
   },
 ];
 
+function getInitialTheme() {
+  const savedTheme = localStorage.getItem("demo-theme");
+
+  if (savedTheme === "light" || savedTheme === "dark") {
+    return savedTheme;
+  }
+
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return prefersDark ? "dark" : "light";
+}
+
 function formatDate(value) {
   try {
     return new Intl.DateTimeFormat("en-IN", {
@@ -42,6 +64,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [theme, setTheme] = useState(getInitialTheme);
 
   const status = useMemo(() => {
     if (!isSupabaseConfigured) {
@@ -57,6 +80,8 @@ export default function App() {
       type: "success",
     };
   }, []);
+
+  const nextThemeLabel = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
 
   async function loadRequests() {
     setLoading(true);
@@ -88,8 +113,17 @@ export default function App() {
     loadRequests();
   }, []);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("demo-theme", theme);
+  }, [theme]);
+
   function updateForm(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function toggleTheme() {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
   }
 
   async function handleSubmit(event) {
@@ -135,6 +169,17 @@ export default function App() {
 
   return (
     <main className="page-shell">
+      <div className="top-bar">
+        <div>
+          <p className="mini-label">Theme enabled demo</p>
+          <strong>User can switch between light and dark mode</strong>
+        </div>
+        <button className="theme-toggle" type="button" onClick={toggleTheme} aria-label={nextThemeLabel}>
+          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+        </button>
+      </div>
+
       <section className="hero-card">
         <div className="hero-copy">
           <p className="eyebrow">Full workflow demo</p>
