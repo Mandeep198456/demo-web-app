@@ -3,13 +3,17 @@ import {
   BookOpen,
   CheckCircle2,
   Database,
+  FileText,
   Github,
+  Image,
   Loader2,
   Moon,
+  Paperclip,
   Rocket,
   Send,
   ShieldCheck,
   Sun,
+  X,
 } from "lucide-react";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
@@ -18,6 +22,10 @@ const emptyForm = {
   class_name: "Class 11",
   request: "",
 };
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
+const ATTACHMENT_BUCKET = "request-attachments";
 
 const fallbackRows = [
   {
@@ -58,6 +66,32 @@ function formatDate(value) {
   }
 }
 
+function validateAttachment(file) {
+  if (!file) {
+    return "";
+  }
+
+  if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+    return "Only PNG, JPG, WEBP images and PDF files are allowed.";
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    return "File size should be less than 10 MB.";
+  }
+
+  return "";
+}
+
+function createSafeFilePath(file) {
+  const safeName = file.name
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "attachment";
+
+  const uniquePart = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return `requests/${uniquePart}-${safeName}`;
+}
+
 export default function App() {
   const [form, setForm] = useState(emptyForm);
   const [rows, setRows] = useState([]);
@@ -65,6 +99,8 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [theme, setTheme] = useState(getInitialTheme);
+  const [attachment, setAttachment] = useState(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const status = useMemo(() => {
     if (!isSupabaseConfigured) {
@@ -95,7 +131,7 @@ export default function App() {
 
     const { data, error } = await supabase
       .from("demo_requests")
-      .select("id, student_name, class_name, request, created_at")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(20);
 
@@ -126,6 +162,51 @@ export default function App() {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
   }
 
+  function handleAttachmentChange(event) {
+    const selectedFile = event.target.files?.[0] || null;
+    const validationMessage = validateAttachment(selectedFile);
+
+    if (validationMessage) {
+      setAttachment(null);
+      setFileInputKey((current) => current + 1);
+      setMessage(validationMessage);
+      return;
+    }
+
+    setAttachment(selectedFile);
+    setMessage("");
+  }
+
+  function removeAttachment() {
+    setAttachment(null);
+    setFileInputKey((current) => current + 1);
+  }
+
+  async function uploadAttachment(file) {
+    const filePath = createSafeFilePath(file);
+
+    const { error: uploadError } = await supabase.storage
+      .from(ATTACHMENT_BUCKET)
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(`Could not upload attachment: ${uploadError.message}`);
+    }
+
+    const { data } = supabase.storage.from(ATTACHMENT_BUCKET).getPublicUrl(filePath);
+
+    return {
+      attachment_name: file.name,
+      attachment_type: file.type,
+      attachment_path: filePath,
+      attachment_url: data.publicUrl,
+    };
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setMessage("");
@@ -141,30 +222,51 @@ export default function App() {
       return;
     }
 
+    const validationMessage = validateAttachment(attachment);
+    if (validationMessage) {
+      setMessage(validationMessage);
+      return;
+    }
+
     if (!isSupabaseConfigured) {
       const localRow = {
         id: `local-${Date.now()}`,
         ...trimmed,
+        attachment_name: attachment?.name || null,
+        attachment_type: attachment?.type || null,
         created_at: new Date().toISOString(),
       };
       setRows((current) => [localRow, ...current]);
       setForm(emptyForm);
+      setAttachment(null);
+      setFileInputKey((current) => current + 1);
       setMessage("Saved locally in demo mode. Connect Supabase to save permanently.");
       return;
     }
 
     setSaving(true);
-    const { error } = await supabase.from("demo_requests").insert(trimmed);
 
-    if (error) {
-      setMessage(`Could not save request: ${error.message}`);
-    } else {
-      setForm(emptyForm);
-      setMessage("Request saved successfully in Supabase.");
-      await loadRequests();
+    try {
+      const attachmentPayload = attachment ? await uploadAttachment(attachment) : {};
+      const { error } = await supabase.from("demo_requests").insert({
+        ...trimmed,
+        ...attachmentPayload,
+      });
+
+      if (error) {
+        setMessage(`Could not save request: ${error.message}`);
+      } else {
+        setForm(emptyForm);
+        setAttachment(null);
+        setFileInputKey((current) => current + 1);
+        setMessage("Request saved successfully in Supabase.");
+        await loadRequests();
+      }
+    } catch (error) {
+      setMessage(error.message || "Could not save request.");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
   }
 
   return (
@@ -246,6 +348,31 @@ export default function App() {
             />
           </label>
 
+          <label>
+            Attachment image / PDF optional
+            <div className="attachment-box">
+              <div className="attachment-input-row">
+                <Paperclip size={18} />
+                <input
+                  key={fileInputKey}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,application/pdf"
+                  onChange={handleAttachmentChange}
+                />
+              </div>
+              <p>Allowed: PNG, JPG, WEBP or PDF. Maximum file size: 10 MB.</p>
+              {attachment && (
+                <div className="selected-file">
+                  {attachment.type === "application/pdf" ? <FileText size={18} /> : <Image size={18} />}
+                  <span>{attachment.name}</span>
+                  <button type="button" className="remove-file-button" onClick={removeAttachment}>
+                    <X size={14} /> Remove
+                  </button>
+                </div>
+              )}
+            </div>
+          </label>
+
           <button type="submit" disabled={saving}>
             {saving ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
             {saving ? "Saving..." : "Save Request"}
@@ -278,6 +405,16 @@ export default function App() {
                     <span>{row.class_name}</span>
                   </div>
                   <p>{row.request}</p>
+                  {row.attachment_url ? (
+                    <a className="attachment-link" href={row.attachment_url} target="_blank" rel="noreferrer">
+                      {row.attachment_type === "application/pdf" ? <FileText size={16} /> : <Image size={16} />}
+                      {row.attachment_name || "View attachment"}
+                    </a>
+                  ) : row.attachment_name ? (
+                    <p className="local-attachment-note">
+                      <Paperclip size={15} /> {row.attachment_name}
+                    </p>
+                  ) : null}
                   <time>{formatDate(row.created_at)}</time>
                 </article>
               ))}
